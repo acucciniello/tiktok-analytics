@@ -1,0 +1,22 @@
+{
+  "name": "tiktok-analytics",
+  "version": "1.0.0",
+  "description": "Analytics pulled from Tiktok",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acucciniello/tiktok-analytics.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/acucciniello/tiktok-analytics/issues"
+  },
+  "homepage": "https://github.com/acucciniello/tiktok-analytics#readme",
+  "devDependencies": {
+    "playwright": "^1.11.0"
+  }
+}
