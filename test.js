@@ -11,7 +11,9 @@ function sleep(ms) {
   await sleep(1000)
   await page.click('.login-wrapper button')
   await sleep(10000)
-  await page.click('.jsx-2041920090 div:has-text("Log in with Google")')
+  const loginIframe = await page.$('iframe')
+  const loginPage = await loginIframe.contentFrame()
+  await loginPage.click('.')
   await sleep(2000)
   // create pages, interact with UI elements, assert values
   await browser.close()
