@@ -18,5 +18,8 @@
   "homepage": "https://github.com/acucciniello/tiktok-analytics#readme",
   "devDependencies": {
     "playwright": "^1.11.0"
+  },
+  "dependencies": {
+    "dotenv": "^9.0.2"
   }
 }
