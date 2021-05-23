@@ -1,4 +1,3 @@
-
 require('dotenv').config()
 const { chromium, firefox } = require('playwright');
 
@@ -21,18 +20,12 @@ function msToTime(duration) {
 
 function convertToDate(secondsSinceUTC) {
   let date = new Date(secondsSinceUTC)
-  console.log(date)
   let year = date.getFullYear()
-  console.log(year)
   let month = (date.getMonth() + 1)
-  console.log(month)
   let day = date.getUTCDate()
-  console.log(day)
 
   month = (month < 10) ? "0" + month : month;
-  console.log(month)
   day = (day < 10) ? "0" + day : day;
-  console.log(day)
   return `${month}/${day}/${year}`
 }
 
@@ -44,65 +37,91 @@ function convertToDate(secondsSinceUTC) {
     page.waitForNavigation(),
     page.goto('https://www.tiktok.com/@investarters?')
   ])  
-  let allVideosAnalytics = []
+  
   // click on latest video
   await Promise.all([
     page.waitForNavigation(),
     page.click('.video-card-mask')
   ])
-    
-  // click view analytics
-  await page.click('text=View Analytics')
-
-  let videoAnalytics = {
-    uploadDate: '',
-    views: '',
-    videoLength: '',
-    avgWatchTime: '',
-    watchFullVidPercentage: '',
-    likes: '',
-    comments: '',
-    shares: '',
-    totalPlayTime: '',
-    personalProfilePercentage: '',
-    followingPercentage: '',
-    fyp: '',
-    hashtagPercentage: '',
-    soundUsed: ''
-  }
-  // pull all the analytics
-  page.on('response', async (response) => {
-    if (response.url().includes('https://api.tiktok.com/aweme/v1/data/insighs/?tz_offset=-18000&aid=1233&carrier_region=US')) {
-      const json = await response.json()
-      console.log(json.video_page_percent)
-      videoAnalytics.uploadDate = convertToDate(json.video_info.create_time * 1000)
-      videoAnalytics.views = json.video_info.statistics.play_count
-      videoAnalytics.videoLength = (json.video_info.video.duration / 1000.0)
-      videoAnalytics.avgWatchTime = (json.video_per_duration.value / 1000.0)
-      videoAnalytics.watchFullVidPercentage = (json.finish_rate.value * 100)
-      videoAnalytics.likes = json.video_info.statistics.digg_count
-      videoAnalytics.comments = json.video_info.statistics.comment_count
-      videoAnalytics.shares = json.video_info.statistics.share_count
-      videoAnalytics.totalPlayTime = msToTime(json.video_total_duration.value)
-      for(let i = 0; i< json.video_page_percent.value.length; i++) {
-        if(json.video_page_percent.value[i].key == 'For You') {
-          videoAnalytics.fyp = (json.video_page_percent.value[i].value * 100)
-        }
-        else if(json.video_page_percent.value[i].key == 'Follow') {
-          videoAnalytics.followingPercentage = (json.video_page_percent.value[i].value * 100)
-        }
-        else if(json.video_page_percent.value[i].key == 'Personal Profile') {
-          videoAnalytics.personalProfilePercentage = (json.video_page_percent.value[i].value * 100)
-        }
-      }
-      console.log(videoAnalytics)
+  let allVideoAnalytics = []
+  // loop while there is a > on the page 
+  while(page.$('.control-icon-arrow-right') !== null) {
+    await page.click('text=View Analytics')
+    console.log('<<<<<<<<<<<<<<<<<<<<<<BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
+    console.log(allVideoAnalytics)
+    // pull all the analytics
+    let videoAnalytics = {
+      uploadDate: '',
+      views: '',
+      videoLength: '',
+      avgWatchTime: '',
+      watchFullVidPercentage: '',
+      likes: '',
+      comments: '',
+      shares: '',
+      totalPlayTime: '',
+      personalProfilePercentage: '',
+      followingPercentage: '',
+      fyp: '',
+      hashtagPercentage: '',
+      soundUsed: ''
     }
-  })
-  await sleep(10000)
-  // click x
-  // click the > button to the next one
-  // loop until there is no more > button available or the view analytics option is not there
+    console.log('<<<<<<<<<<<<<<<<<<<<<<BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
+    console.log(videoAnalytics)
+    const finishedParsingAnalytics = new Promise((resolve, reject) => {
+      page.on('response', async (response) => {
+        if (response.url().includes('https://api.tiktok.com/aweme/v1/data/insighs/?tz_offset=-18000&aid=1233&carrier_region=US')) {
+          const json = await response.json()
+          console.log('<<<<<<<<<<<IN LOOP>>>>>>>>>>>>>>>>')
+          console.log(allVideoAnalytics)
+          console.log(videoAnalytics)
+          videoAnalytics.uploadDate = convertToDate(json.video_info.create_time * 1000)
+          videoAnalytics.views = json.video_info.statistics.play_count
+          videoAnalytics.videoLength = (json.video_info.video.duration / 1000.0)
+          videoAnalytics.avgWatchTime = (json.video_per_duration.value / 1000.0)
+          videoAnalytics.watchFullVidPercentage = (json.finish_rate.value * 100)
+          videoAnalytics.likes = json.video_info.statistics.digg_count
+          videoAnalytics.comments = json.video_info.statistics.comment_count
+          videoAnalytics.shares = json.video_info.statistics.share_count
+          videoAnalytics.totalPlayTime = msToTime(json.video_total_duration.value)
+          for(let i = 0; i< json.video_page_percent.value.length; i++) {
+            if(json.video_page_percent.value[i].key == 'For You') {
+              videoAnalytics.fyp = (json.video_page_percent.value[i].value * 100)
+            }
+            else if(json.video_page_percent.value[i].key == 'Follow') {
+              videoAnalytics.followingPercentage = (json.video_page_percent.value[i].value * 100)
+            }
+            else if(json.video_page_percent.value[i].key == 'Personal Profile') {
+              videoAnalytics.personalProfilePercentage = (json.video_page_percent.value[i].value * 100)
+            }
+          }
+          resolve(videoAnalytics)
+        }
+      })
+    })
+    try {
+      let oneVideosAnalytics = await finishedParsingAnalytics
+      console.log('<<<<<<<<<<<<<<<<<AFTER>>>>>>>>>>>>>>>>>>>')
+      console.log(oneVideosAnalytics)
+      page.removeListener('response', async() => {
+        // page.off('response')
+      })
+      console.log('<<<<<<<<<RIGHT BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
+      console.log(allVideoAnalytics)
+      console.log('<<<<<<<<<<<<<<<<<AFTER>>>>>>>>>>>>>>>>>>>')
+      allVideoAnalytics.push(oneVideosAnalytics)
+      console.log(allVideoAnalytics)
+      await page.click('.close-btn')
+      await page.click('.arrow-right')
+
+    } catch (e) {
+      console.log('could not parse analytics')
+    }
+
+  }
+  // click view analytics
   
+  await sleep(10000) 
   await browser.close()
 })()
 
