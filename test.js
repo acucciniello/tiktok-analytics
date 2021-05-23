@@ -1,5 +1,6 @@
 require('dotenv').config()
 const { chromium, firefox } = require('playwright');
+const fsPromises = require('fs/promises')
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -44,37 +45,16 @@ function convertToDate(secondsSinceUTC) {
     page.click('.video-card-mask')
   ])
   let allVideoAnalytics = []
+  let breakTheLoop = false
   // loop while there is a > on the page 
-  while(page.$('.control-icon-arrow-right') !== null) {
-    await page.click('text=View Analytics')
-    console.log('<<<<<<<<<<<<<<<<<<<<<<BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
-    console.log(allVideoAnalytics)
-    // pull all the analytics
-    let videoAnalytics = {
-      uploadDate: '',
-      views: '',
-      videoLength: '',
-      avgWatchTime: '',
-      watchFullVidPercentage: '',
-      likes: '',
-      comments: '',
-      shares: '',
-      totalPlayTime: '',
-      personalProfilePercentage: '',
-      followingPercentage: '',
-      fyp: '',
-      hashtagPercentage: '',
-      soundUsed: ''
-    }
-    console.log('<<<<<<<<<<<<<<<<<<<<<<BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
-    console.log(videoAnalytics)
-    const finishedParsingAnalytics = new Promise((resolve, reject) => {
+  while(page.$('.control-icon-arrow-right') !== null && !breakTheLoop) {
+    try {
+      await page.click('text=View Analytics')
+      const finishedParsingAnalytics = new Promise((resolve, reject) => {
       page.on('response', async (response) => {
         if (response.url().includes('https://api.tiktok.com/aweme/v1/data/insighs/?tz_offset=-18000&aid=1233&carrier_region=US')) {
           const json = await response.json()
-          console.log('<<<<<<<<<<<IN LOOP>>>>>>>>>>>>>>>>')
-          console.log(allVideoAnalytics)
-          console.log(videoAnalytics)
+          let videoAnalytics = {}
           videoAnalytics.uploadDate = convertToDate(json.video_info.create_time * 1000)
           videoAnalytics.views = json.video_info.statistics.play_count
           videoAnalytics.videoLength = (json.video_info.video.duration / 1000.0)
@@ -99,26 +79,34 @@ function convertToDate(secondsSinceUTC) {
         }
       })
     })
-    try {
-      let oneVideosAnalytics = await finishedParsingAnalytics
-      console.log('<<<<<<<<<<<<<<<<<AFTER>>>>>>>>>>>>>>>>>>>')
-      console.log(oneVideosAnalytics)
-      page.removeListener('response', async() => {
-        // page.off('response')
-      })
-      console.log('<<<<<<<<<RIGHT BEFORE>>>>>>>>>>>>>>>>>>>>>>>')
-      console.log(allVideoAnalytics)
-      console.log('<<<<<<<<<<<<<<<<<AFTER>>>>>>>>>>>>>>>>>>>')
-      allVideoAnalytics.push(oneVideosAnalytics)
-      console.log(allVideoAnalytics)
-      await page.click('.close-btn')
-      await page.click('.arrow-right')
-
-    } catch (e) {
-      console.log('could not parse analytics')
+      try {
+        let oneVideosAnalytics = await finishedParsingAnalytics
+        page.removeListener('response', async() => {})
+        await page.click('.close-btn')
+        await page.click('.arrow-right')
+        allVideoAnalytics.push(oneVideosAnalytics)
+      } catch (e) {
+        console.log('could not parse analytics')
+        await page.click('.user-username')
+        await sleep('10000')
+      }
+    } catch (err) {
+      breakTheLoop = true
+      console.log('no view analytics options')
     }
-
   }
+
+  const allVideoAnalyticsString = JSON.stringify(allVideoAnalytics)
+  console.log(allVideoAnalyticsString)
+  try {
+    const promiseToFile = fsPromises.writeFile('video-analytics.json', allVideoAnalyticsString)
+    await promiseToFile
+    console.log('its written')
+  } catch(e) {
+    console.log('nothign was written)')
+  }
+  
+
   // click view analytics
   
   await sleep(10000) 
