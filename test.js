@@ -32,11 +32,12 @@ function convertToDate(secondsSinceUTC) {
 
 
 (async () => {
+  const accountHandle = `investarters`
   const browser = await firefox.launchPersistentContext('antonio-firefox', {headless: false, slowMo: 185});
   const page = await browser.newPage()
   await Promise.all([
     page.waitForNavigation(),
-    page.goto('https://www.tiktok.com/@investarters?')
+    page.goto(`https://www.tiktok.com/@${accountHandle}?`)
   ])  
   
   // click on latest video
@@ -45,9 +46,13 @@ function convertToDate(secondsSinceUTC) {
     page.click('.video-card-mask')
   ])
   let allVideoAnalytics = []
+  let eachVideosDescription = []
   let breakTheLoop = false
   // loop while there is a > on the page 
   while(page.$('.control-icon-arrow-right') !== null && !breakTheLoop) {
+  let videosDescription = await page.textContent('.video-meta-title')
+  console.log(videosDescription)
+  eachVideosDescription.push(videosDescription)
     try {
       await page.click('text=View Analytics')
       const finishedParsingAnalytics = new Promise((resolve, reject) => {
@@ -55,25 +60,45 @@ function convertToDate(secondsSinceUTC) {
         if (response.url().includes('https://api.tiktok.com/aweme/v1/data/insighs/?tz_offset=-18000&aid=1233&carrier_region=US')) {
           const json = await response.json()
           let videoAnalytics = {}
-          videoAnalytics.uploadDate = convertToDate(json.video_info.create_time * 1000)
+          if (json.video_info.create_time !== null || json.video_info.create_time !== undefined) {
+            videoAnalytics.uploadDate = convertToDate(json.video_info.create_time * 1000)
+          }
           videoAnalytics.views = json.video_info.statistics.play_count
           videoAnalytics.videoLength = (json.video_info.video.duration / 1000.0)
-          videoAnalytics.avgWatchTime = (json.video_per_duration.value / 1000.0)
-          videoAnalytics.watchFullVidPercentage = (json.finish_rate.value * 100)
+          if (json.video_per_duration.value !== null || json.video_per_duration.value !== undefined) {
+            videoAnalytics.avgWatchTime = (json.video_per_duration.value / 1000.0)
+          } else {
+            videoAnalytics.avgWatchTime = 0
+          }
+          if (json.finish_rate.value !== null || json.finish_rate.value !== undefined) {
+            videoAnalytics.watchFullVidPercentage = (json.finish_rate.value * 100)
+          } else{
+            videoAnalytics.watchFullVidPercentage = 0
+          }
           videoAnalytics.likes = json.video_info.statistics.digg_count
           videoAnalytics.comments = json.video_info.statistics.comment_count
           videoAnalytics.shares = json.video_info.statistics.share_count
-          videoAnalytics.totalPlayTime = msToTime(json.video_total_duration.value)
-          for(let i = 0; i< json.video_page_percent.value.length; i++) {
-            if(json.video_page_percent.value[i].key == 'For You') {
-              videoAnalytics.fyp = (json.video_page_percent.value[i].value * 100)
+          if (json.video_total_duration.value !== null || json.video_total_duration.value !== undefined) {
+            videoAnalytics.totalPlayTime = msToTime(json.video_total_duration.value)
+          } else {
+            videoAnalytics.totalPlayTime = `00h:00m:00s`
+          }
+          if(json.video_page_percent.value) {
+            for(let i = 0; i< json.video_page_percent.value.length; i++) {
+              if(json.video_page_percent.value[i].key == 'For You') {
+                videoAnalytics.fyp = (json.video_page_percent.value[i].value * 100)
+              }
+              else if(json.video_page_percent.value[i].key == 'Follow') {
+                videoAnalytics.followingPercentage = (json.video_page_percent.value[i].value * 100)
+              }
+              else if(json.video_page_percent.value[i].key == 'Personal Profile') {
+                videoAnalytics.personalProfilePercentage = (json.video_page_percent.value[i].value * 100)
+              }
             }
-            else if(json.video_page_percent.value[i].key == 'Follow') {
-              videoAnalytics.followingPercentage = (json.video_page_percent.value[i].value * 100)
-            }
-            else if(json.video_page_percent.value[i].key == 'Personal Profile') {
-              videoAnalytics.personalProfilePercentage = (json.video_page_percent.value[i].value * 100)
-            }
+          } else {
+            videoAnalytics.fyp = 0
+            videoAnalytics.followingPercentage = 0
+            videoAnalytics.personalProfilePercentage = 0
           }
           resolve(videoAnalytics)
         }
@@ -97,13 +122,22 @@ function convertToDate(secondsSinceUTC) {
   }
 
   const allVideoAnalyticsString = JSON.stringify(allVideoAnalytics)
+
+  const eachVideosDescriptionString = JSON.stringify(eachVideosDescription)
   console.log(allVideoAnalyticsString)
   try {
-    const promiseToFile = fsPromises.writeFile('video-analytics.json', allVideoAnalyticsString)
-    await promiseToFile
-    console.log('its written')
+    const promiseToFileForAnalytics = fsPromises.writeFile('video-analytics.json', allVideoAnalyticsString)
+    await promiseToFileForAnalytics
+    console.log('analytics are written')
+    try {
+      const promiseToFileForDescriptions = fsPromises.writeFile('video-names.json', eachVideosDescriptionString)
+      await promiseToFileForDescriptions
+      console.log('descriptions are written')
+    } catch(e) {
+      console.log('descriptions were not written)')
+    }
   } catch(e) {
-    console.log('nothign was written)')
+    console.log('analytics were not written)')
   }
   
 
