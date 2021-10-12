@@ -32,14 +32,17 @@ function convertToDate(secondsSinceUTC) {
 
 
 (async () => {
+  // change this if you want to update the account the browser will open to
   const accountHandle = `investarters`
+  // stores my password this way I can stay signed in
   const browser = await firefox.launchPersistentContext('antonio-firefox', {headless: false, slowMo: 185});
   const page = await browser.newPage()
   await Promise.all([
     page.waitForNavigation(),
     page.goto(`https://www.tiktok.com/@${accountHandle}?`)
   ])  
-  
+  // Uncomment the line below if you need to log in to a new account
+  // await sleep('100000')
   // click on latest video
   await Promise.all([
     page.waitForNavigation(),
@@ -49,7 +52,9 @@ function convertToDate(secondsSinceUTC) {
   let eachVideosDescription = []
   let breakTheLoop = false
   // loop while there is a > on the page 
-  while(page.$('.control-icon-arrow-right') !== null && !breakTheLoop) {
+  // count represents the amount of times we went before tiktok stopped showing the arrow to the next video.
+  count = 0
+  while(page.$('.control-icon-arrow-right') !== null && !breakTheLoop && count < 3) {
   let videosDescription = await page.textContent('.video-meta-title')
   console.log(videosDescription)
   eachVideosDescription.push(videosDescription)
@@ -113,7 +118,8 @@ function convertToDate(secondsSinceUTC) {
       } catch (e) {
         console.log('could not parse analytics')
         await page.click('.user-username')
-        await sleep('10000')
+        count = count + 1
+        await sleep('20000')
       }
     } catch (err) {
       breakTheLoop = true
@@ -126,10 +132,12 @@ function convertToDate(secondsSinceUTC) {
   const eachVideosDescriptionString = JSON.stringify(eachVideosDescription)
   console.log(allVideoAnalyticsString)
   try {
+    //write the file with analytics
     const promiseToFileForAnalytics = fsPromises.writeFile('video-analytics.json', allVideoAnalyticsString)
     await promiseToFileForAnalytics
     console.log('analytics are written')
     try {
+      // write the file with all descriptions
       const promiseToFileForDescriptions = fsPromises.writeFile('video-names.json', eachVideosDescriptionString)
       await promiseToFileForDescriptions
       console.log('descriptions are written')
